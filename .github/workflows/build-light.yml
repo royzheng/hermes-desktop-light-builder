@@ -1,0 +1,183 @@
+name: Build Hermes Light for macOS arm64
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: 'Optional stable NousResearch/hermes-agent tag (vX.Y.Z)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hermes-light-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out builder project
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Set up Python for temporary packaging tools
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Select upstream release
+        id: upstream
+        env:
+          REQUESTED_UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+        run: python3 scripts/select_upstream.py
+
+      - name: Select release mode
+        id: mode
+        env:
+          CERT: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          NOTARY_KEY: ${{ secrets.APPLE_API_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+        shell: bash
+        run: |
+          count=0
+          for value in "$CERT" "$CERT_PASSWORD" "$NOTARY_KEY" "$NOTARY_KEY_ID" "$NOTARY_ISSUER"; do
+            [[ -z "$value" ]] || count=$((count + 1))
+          done
+          if [[ "$count" -eq 0 ]]; then
+            echo 'signed=false' >> "$GITHUB_OUTPUT"
+            echo "release_tag=${UPSTREAM_TAG}-unsigned.1" >> "$GITHUB_OUTPUT"
+          elif [[ "$count" -eq 5 ]]; then
+            echo 'signed=true' >> "$GITHUB_OUTPUT"
+            echo "release_tag=${UPSTREAM_TAG}" >> "$GITHUB_OUTPUT"
+          else
+            echo 'Configure all five macOS signing/notarization secrets, or none of them.' >&2
+            exit 1
+          fi
+
+      - name: Skip existing release
+        id: existing
+        env:
+          RELEASE_TAG: ${{ steps.mode.outputs.release_tag }}
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > "$RUNNER_TEMP/release-draft" 2>/dev/null; then
+            if [[ "$(cat "$RUNNER_TEMP/release-draft")" == true ]]; then
+              echo "Existing draft $RELEASE_TAG needs review before retrying." >&2
+              exit 1
+            fi
+            echo "Release $RELEASE_TAG already exists."
+            echo 'skip=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'skip=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out exact upstream tag
+        if: steps.existing.outputs.skip != 'true'
+        env:
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+        shell: bash
+        run: |
+          git clone --depth 1 --branch "$UPSTREAM_TAG" https://github.com/NousResearch/hermes-agent.git upstream
+          actual="$(git -C upstream rev-parse HEAD)"
+          [[ "$actual" == "$UPSTREAM_SHA" ]] || { echo "Upstream tag changed: $actual != $UPSTREAM_SHA" >&2; exit 1; }
+          [[ "$(uname -m)" == arm64 ]] || { echo 'This workflow requires an Apple Silicon runner.' >&2; exit 1; }
+
+      - name: Route macOS updater to this repository
+        if: steps.existing.outputs.skip != 'true'
+        run: python3 scripts/patch_mac_feed.py upstream/apps/desktop/electron-builder.config.cjs
+
+      - name: Install pinned Node dependencies
+        if: steps.existing.outputs.skip != 'true'
+        shell: bash
+        run: |
+          cd upstream
+          npm ci
+
+      - name: Build and package remote-only Desktop
+        if: steps.existing.outputs.skip != 'true'
+        env:
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          UPSTREAM_VERSION: ${{ steps.upstream.outputs.version }}
+          CSC_LINK: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          SIGNED: ${{ steps.mode.outputs.signed }}
+        shell: bash
+        run: |
+          cd upstream
+          export HERMES_PYTHON="$(command -v python3)"
+          export HERMES_DESKTOP_VARIANT=light
+          export HERMES_PAYLOAD_VERSION="$UPSTREAM_VERSION"
+          export GITHUB_SHA="$UPSTREAM_SHA"
+          export CSC_IDENTITY_AUTO_DISCOVERY="$SIGNED"
+          npm run build --workspace apps/desktop
+          npm run builder --workspace apps/desktop -- --mac "-c.extraMetadata.version=$UPSTREAM_VERSION"
+
+      - name: Verify app and feed before release
+        if: steps.existing.outputs.skip != 'true'
+        env:
+          RELEASE_DIR: ${{ github.workspace }}/upstream/apps/desktop/release
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          UPSTREAM_VERSION: ${{ steps.upstream.outputs.version }}
+          SIGNED: ${{ steps.mode.outputs.signed }}
+        shell: bash
+        run: |
+          python3 scripts/verify_build.py
+          if [[ "$SIGNED" == true ]]; then
+            app="$RELEASE_DIR/mac-arm64/Hermes Light.app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            xcrun stapler validate "$app"
+            spctl --assess --type execute --verbose=2 "$app"
+          fi
+
+      - name: Publish GitHub Release
+        if: steps.existing.outputs.skip != 'true'
+        env:
+          RELEASE_TAG: ${{ steps.mode.outputs.release_tag }}
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          SIGNED: ${{ steps.mode.outputs.signed }}
+        shell: bash
+        run: |
+          cd upstream/apps/desktop/release
+          shopt -s nullglob
+          shasum -a 256 HermesLight-*.dmg HermesLight-*.zip *-mac.yml > SHA256SUMS.txt
+          assets=(HermesLight-*.dmg HermesLight-*.zip *-mac.yml *.blockmap SHA256SUMS.txt)
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          Unofficial Hermes Light macOS arm64 build from [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent/tree/$UPSTREAM_TAG).
+
+          - Upstream tag: \`$UPSTREAM_TAG\`
+          - Upstream commit: \`$UPSTREAM_SHA\`
+          - Variant: \`light\` (remote-only; no bundled Hermes Python backend)
+
+          $(if [[ "$SIGNED" == true ]]; then echo 'Signed and notarized. The ZIP and update manifest serve the in-app updater.'; else echo 'Unsigned preview: install manually. In-app updates require a signed release and a manual transition to the first signed build.'; fi)
+          EOF
+          if [[ "$SIGNED" == true ]]; then
+            gh release create "$RELEASE_TAG" "${assets[@]}" --draft \
+              --title "Hermes Light $UPSTREAM_TAG (macOS arm64)" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+          else
+            gh release create "$RELEASE_TAG" "${assets[@]}" --draft --prerelease --latest=false \
+              --title "Hermes Light $UPSTREAM_TAG (unsigned preview)" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+            gh release edit "$RELEASE_TAG" --draft=false
+          fi
