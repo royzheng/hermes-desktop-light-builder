@@ -32,7 +32,7 @@ def main():
 
     update = (resources / "app-update.yml").read_text()
     owner, repo = os.environ["GITHUB_REPOSITORY"].split("/", 1)
-    for key, value in (("provider", "github"), ("owner", owner), ("repo", repo)):
+    for key, value in (("provider", "github"), ("owner", owner), ("repo", repo), ("channel", "stable")):
         require(re.search(rf"(?m)^{key}:\s*['\"]?{re.escape(value)}['\"]?\s*$", update),
                 f"Packaged updater does not point to {key}={value}")
 
@@ -40,6 +40,7 @@ def main():
     zips = sorted(release.glob("HermesLight-*-mac-arm64.zip"))
     feeds = sorted(release.glob("*-mac.yml"))
     require(len(dmgs) == len(zips) == len(feeds) == 1, "Expected one DMG, ZIP and macOS update feed")
+    require(feeds[0].name == "stable-mac.yml", "Packaged client requests stable-mac.yml")
     require(os.environ["UPSTREAM_VERSION"] in dmgs[0].name, "DMG version differs")
     require(os.environ["UPSTREAM_VERSION"] in zips[0].name, "ZIP version differs")
     require(zips[0].name in feeds[0].read_text(), "Update feed does not reference the ZIP")

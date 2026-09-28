@@ -16,7 +16,8 @@ if (process.env.HERMES_DESKTOP_VARIANT === 'light') {{
     throw new Error('Hermes Light builder requires GITHUB_REPOSITORY={EXPECTED_REPO}')
   }}
   module.exports.mac.publish = [{{
-    provider: 'github', owner: 'royzheng', repo: 'hermes-desktop-light-builder', channel: 'light'
+    // The packaged Light client requests the stable descriptor at runtime.
+    provider: 'github', owner: 'royzheng', repo: 'hermes-desktop-light-builder', channel: 'stable'
   }}]
 }}
 """

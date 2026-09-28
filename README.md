@@ -38,7 +38,8 @@ Light 是上游定义的远程客户端变体。构建出的应用不包含 Herm
 
 上游当前 macOS 配置在没有它的 R2 发布地址时，不会生成 GitHub 更新源。本仓库在临时
 checkout 中给打包配置添加一处 [GitHub feed 调整](scripts/patch_mac_feed.py)，使包内
-`app-update.yml` 和 Release 的更新清单都指向本仓库；不会改动上游仓库。
+`app-update.yml` 和 Release 的 `stable-mac.yml` 更新清单都指向本仓库；不会改动
+上游仓库。这个仓库只发布 Light，所以使用客户端在运行时请求的 `stable` 通道名。
 
 这里使用普通 Desktop 打包路径。应用版本由上游 commit 的 UTC 提交时间生成，
 格式为 `年.月.日时分秒` 三段数字；相同 commit 会得到相同版本，新的提交会产生
