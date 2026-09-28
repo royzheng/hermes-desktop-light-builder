@@ -46,6 +46,10 @@ checkout 中给打包配置添加一处 [GitHub feed 调整](scripts/patch_mac_f
 更高版本。上游 commit 记录在 Release 说明中。CI 所用的 Python 只负责临时
 构建工具，应用内不带 Python 运行时。
 
+GitHub 会在公开仓库连续 60 天没有仓库活动后自动停用定时工作流；如果以后 Actions
+不再按时运行，请在仓库的 Actions 页面重新启用该工作流。手动触发可用于即时检查。
+参见 [GitHub 的 schedule 说明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。
+
 ### 签名与更新
 
 在配置完整签名材料前，工作流发布 `vX.Y.Z-unsigned.1` **预发布版**，供手动下载安装。
