@@ -1,9 +1,13 @@
 # Hermes Desktop Light Builder
 
 这个仓库独立维护构建说明和 GitHub Actions 工作流。它每天检查
-[NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) 的最新稳定标签，
-仅在对应版本尚未发布时，在 GitHub 的 Apple Silicon macOS runner 上从该标签构建
-**Hermes Light**。这里不复制或长期维护上游 Desktop 源码。
+[NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) 的 `main`，
+仅在新的 commit 尚未发布时，在 GitHub 的 Apple Silicon macOS runner 上从该精确
+commit 构建 **Hermes Light**。这里不复制或长期维护上游 Desktop 源码。
+
+目前上游最新稳定标签 `v2026.9.24` 尚未包含 Light 专用打包配置，因此产物是
+**上游 main 的源码快照构建**，并非上游正式发布版。上游更新可能使构建失败；
+工作流会在验证不通过时停止发布。
 
 Light 是上游定义的远程客户端变体。构建出的应用不包含 Hermes Python 后端或
 `agent-payload`；用户首次启动时可选择 **Connect to existing Hermes**，在应用内输入
@@ -24,10 +28,10 @@ Light 是上游定义的远程客户端变体。构建出的应用不包含 Herm
 ## 自动构建
 
 工作流 [`.github/workflows/build-light.yml`](.github/workflows/build-light.yml) 每天
-03:17 UTC（北京时间 11:17）运行，也可在 Actions 页面手动运行并指定上游标签。
+03:17 UTC（北京时间 11:17）运行，也可在 Actions 页面手动运行。
 它会：
 
-1. 解析上游稳定 `vX.Y.Z` 标签及其 commit，并检验源码 checkout；
+1. 解析上游 `main` 的精确 commit，并检验源码 checkout；
 2. 在临时 runner 上安装 Node 和构建工具，运行上游 Desktop 的 `light` 构建；
 3. 检查应用身份、Light 构建标记、更新源，以及 DMG、ZIP、更新清单；
 4. 把产物发布到本仓库的 GitHub Releases。ZIP 是 macOS 应用内更新所需的包。
@@ -36,10 +40,10 @@ Light 是上游定义的远程客户端变体。构建出的应用不包含 Herm
 checkout 中给打包配置添加一处 [GitHub feed 调整](scripts/patch_mac_feed.py)，使包内
 `app-update.yml` 和 Release 的更新清单都指向本仓库；不会改动上游仓库。
 
-上游当前的日期式标签（如 `v2026.9.24`）不能直接传给它的完整发布构建器。
-因此这里使用普通 Desktop 打包路径，把 `2026.9.24` 作为应用版本；上游标签和
-commit 记录在 Release 说明中。CI 所用的 Python 只负责临时构建工具，应用内不带
-Python 运行时。
+这里使用普通 Desktop 打包路径。应用版本由上游 commit 的 UTC 提交时间生成，
+格式为 `年.月.日时分秒` 三段数字；相同 commit 会得到相同版本，新的提交会产生
+更高版本。上游 commit 记录在 Release 说明中。CI 所用的 Python 只负责临时
+构建工具，应用内不带 Python 运行时。
 
 ### 签名与更新
 

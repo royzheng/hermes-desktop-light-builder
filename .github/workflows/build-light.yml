@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
-    inputs:
-      upstream_tag:
-        description: 'Optional stable NousResearch/hermes-agent tag (vX.Y.Z)'
-        required: false
-        type: string
 
 permissions:
   contents: write
@@ -37,10 +32,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Select upstream release
+      - name: Pin upstream main commit
         id: upstream
-        env:
-          REQUESTED_UPSTREAM_TAG: ${{ inputs.upstream_tag }}
         run: python3 scripts/select_upstream.py
 
       - name: Select release mode
@@ -51,7 +44,7 @@ jobs:
           NOTARY_KEY: ${{ secrets.APPLE_API_KEY_P8 }}
           NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           NOTARY_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+          UPSTREAM_VERSION: ${{ steps.upstream.outputs.version }}
         shell: bash
         run: |
           count=0
@@ -60,10 +53,10 @@ jobs:
           done
           if [[ "$count" -eq 0 ]]; then
             echo 'signed=false' >> "$GITHUB_OUTPUT"
-            echo "release_tag=${UPSTREAM_TAG}-unsigned.1" >> "$GITHUB_OUTPUT"
+            echo "release_tag=v${UPSTREAM_VERSION}-unsigned.1" >> "$GITHUB_OUTPUT"
           elif [[ "$count" -eq 5 ]]; then
             echo 'signed=true' >> "$GITHUB_OUTPUT"
-            echo "release_tag=${UPSTREAM_TAG}" >> "$GITHUB_OUTPUT"
+            echo "release_tag=v${UPSTREAM_VERSION}" >> "$GITHUB_OUTPUT"
           else
             echo 'Configure all five macOS signing/notarization secrets, or none of them.' >&2
             exit 1
@@ -73,6 +66,7 @@ jobs:
         id: existing
         env:
           RELEASE_TAG: ${{ steps.mode.outputs.release_tag }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
         shell: bash
         run: |
           if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > "$RUNNER_TEMP/release-draft" 2>/dev/null; then
@@ -80,22 +74,24 @@ jobs:
               echo "Existing draft $RELEASE_TAG needs review before retrying." >&2
               exit 1
             fi
+            body="$(gh release view "$RELEASE_TAG" --json body --jq .body)"
+            [[ "$body" == *"$UPSTREAM_SHA"* ]] || { echo "Release version $RELEASE_TAG belongs to a different upstream commit." >&2; exit 1; }
             echo "Release $RELEASE_TAG already exists."
             echo 'skip=true' >> "$GITHUB_OUTPUT"
           else
             echo 'skip=false' >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check out exact upstream tag
+      - name: Check out pinned upstream main commit
         if: steps.existing.outputs.skip != 'true'
         env:
-          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
           UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
         shell: bash
         run: |
-          git clone --depth 1 --branch "$UPSTREAM_TAG" https://github.com/NousResearch/hermes-agent.git upstream
+          git clone --filter=blob:none --depth 1 --branch main https://github.com/NousResearch/hermes-agent.git upstream
           actual="$(git -C upstream rev-parse HEAD)"
-          [[ "$actual" == "$UPSTREAM_SHA" ]] || { echo "Upstream tag changed: $actual != $UPSTREAM_SHA" >&2; exit 1; }
+          [[ "$actual" == "$UPSTREAM_SHA" ]] || { echo "Upstream main advanced during selection: $actual != $UPSTREAM_SHA. Re-run the workflow." >&2; exit 1; }
+          [[ -f upstream/apps/desktop/electron-builder.config.cjs ]] || { echo 'Selected upstream commit has no Light packaging config.' >&2; exit 1; }
           [[ "$(uname -m)" == arm64 ]] || { echo 'This workflow requires an Apple Silicon runner.' >&2; exit 1; }
 
       - name: Route macOS updater to this repository
@@ -152,7 +148,7 @@ jobs:
         if: steps.existing.outputs.skip != 'true'
         env:
           RELEASE_TAG: ${{ steps.mode.outputs.release_tag }}
-          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+          UPSTREAM_VERSION: ${{ steps.upstream.outputs.version }}
           UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
           SIGNED: ${{ steps.mode.outputs.signed }}
         shell: bash
@@ -162,9 +158,9 @@ jobs:
           shasum -a 256 HermesLight-*.dmg HermesLight-*.zip *-mac.yml > SHA256SUMS.txt
           assets=(HermesLight-*.dmg HermesLight-*.zip *-mac.yml *.blockmap SHA256SUMS.txt)
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF
-          Unofficial Hermes Light macOS arm64 build from [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent/tree/$UPSTREAM_TAG).
+          Unofficial Hermes Light macOS arm64 build from [NousResearch/hermes-agent main](https://github.com/NousResearch/hermes-agent/commit/$UPSTREAM_SHA).
 
-          - Upstream tag: \`$UPSTREAM_TAG\`
+          - App version: \`$UPSTREAM_VERSION\`
           - Upstream commit: \`$UPSTREAM_SHA\`
           - Variant: \`light\` (remote-only; no bundled Hermes Python backend)
 
@@ -172,12 +168,12 @@ jobs:
           EOF
           if [[ "$SIGNED" == true ]]; then
             gh release create "$RELEASE_TAG" "${assets[@]}" --draft \
-              --title "Hermes Light $UPSTREAM_TAG (macOS arm64)" \
+              --title "Hermes Light $UPSTREAM_VERSION (macOS arm64)" \
               --notes-file "$RUNNER_TEMP/release-notes.md"
             gh release edit "$RELEASE_TAG" --draft=false --latest
           else
             gh release create "$RELEASE_TAG" "${assets[@]}" --draft --prerelease --latest=false \
-              --title "Hermes Light $UPSTREAM_TAG (unsigned preview)" \
+              --title "Hermes Light $UPSTREAM_VERSION (unsigned preview)" \
               --notes-file "$RUNNER_TEMP/release-notes.md"
             gh release edit "$RELEASE_TAG" --draft=false
           fi
