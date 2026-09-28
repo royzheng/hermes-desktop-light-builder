@@ -69,12 +69,12 @@ jobs:
           UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
         shell: bash
         run: |
-          if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > "$RUNNER_TEMP/release-draft" 2>/dev/null; then
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft > "$RUNNER_TEMP/release-draft" 2>/dev/null; then
             if [[ "$(cat "$RUNNER_TEMP/release-draft")" == true ]]; then
               echo "Existing draft $RELEASE_TAG needs review before retrying." >&2
               exit 1
             fi
-            body="$(gh release view "$RELEASE_TAG" --json body --jq .body)"
+            body="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)"
             [[ "$body" == *"$UPSTREAM_SHA"* ]] || { echo "Release version $RELEASE_TAG belongs to a different upstream commit." >&2; exit 1; }
             echo "Release $RELEASE_TAG already exists."
             echo 'skip=true' >> "$GITHUB_OUTPUT"
@@ -170,13 +170,13 @@ jobs:
           $(if [[ "$SIGNED" == true ]]; then echo 'Signed and notarized. The ZIP and update manifest serve the in-app updater.'; else echo 'Unsigned preview: install manually. In-app updates require a signed release and a manual transition to the first signed build.'; fi)
           EOF
           if [[ "$SIGNED" == true ]]; then
-            gh release create "$RELEASE_TAG" "${assets[@]}" --draft \
+            gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --draft \
               --title "Hermes Light $UPSTREAM_VERSION (macOS arm64)" \
               --notes-file "$RUNNER_TEMP/release-notes.md"
-            gh release edit "$RELEASE_TAG" --draft=false --latest
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
           else
-            gh release create "$RELEASE_TAG" "${assets[@]}" --draft --prerelease --latest=false \
+            gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --draft --prerelease --latest=false \
               --title "Hermes Light $UPSTREAM_VERSION (unsigned preview)" \
               --notes-file "$RUNNER_TEMP/release-notes.md"
-            gh release edit "$RELEASE_TAG" --draft=false
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
           fi
