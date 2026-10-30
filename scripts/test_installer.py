@@ -23,7 +23,7 @@ def main():
         contents.mkdir(parents=True)
         plist = contents / 'Info.plist'
         identity = {'CFBundleIdentifier': 'com.nousresearch.hermes-light',
-                    'CFBundleExecutable': 'HermesInstallerFixture', 'CFBundleShortVersionString': '1.0'}
+                    'CFBundleExecutable': 'HLightTest', 'CFBundleShortVersionString': '1.0'}
         plist.write_bytes(plistlib.dumps(identity))
         (contents / 'payload').write_text('first version')
         command = [str(disk / script.name), '--destination', str(dest), '--no-open', '--no-pause']
@@ -54,7 +54,7 @@ def main():
         assert target.is_symlink() and (saved / 'Contents/payload').read_text() == 'second version'
         target.unlink()
         saved.rename(target)
-        fake_process = root / 'HermesInstallerFixture'
+        fake_process = root / 'HLightTest'
         shutil.copy('/bin/sleep', fake_process)
         subprocess.run(['codesign', '--force', '--sign', '-', str(fake_process)], check=True)
         process = subprocess.Popen([str(fake_process), '30'])
