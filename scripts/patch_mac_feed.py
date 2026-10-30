@@ -2,6 +2,7 @@
 """Route the ephemeral upstream macOS package to this repo's GitHub feed."""
 
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -15,7 +16,7 @@ if (process.env.HERMES_DESKTOP_VARIANT === 'light') {{
   if (process.env.GITHUB_REPOSITORY !== '{EXPECTED_REPO}') {{
     throw new Error('Hermes Light builder requires GITHUB_REPOSITORY={EXPECTED_REPO}')
   }}
-  const installer = require('node:path').resolve(process.env.GITHUB_WORKSPACE, 'scripts/Install.command')
+  const installer = require('node:path').join(__dirname, 'packaging/hermes-light-installer/Install.command')
   if (!require('node:fs').existsSync(installer)) {{
     throw new Error('Missing Install.command')
   }}
@@ -48,6 +49,9 @@ def main():
         raise RuntimeError("Update feed patch is already present")
     if "module.exports = {" not in source or "mac: {" not in source:
         raise RuntimeError("Upstream Electron Builder config changed; review patch before building")
+    installer_dir = config.parent / 'packaging' / 'hermes-light-installer'
+    installer_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(Path(__file__).with_name('Install.command'), installer_dir / 'Install.command')
     config.write_text(source.rstrip() + OVERRIDE)
     print(f"Patched {config} to publish the Hermes Light macOS feed to {EXPECTED_REPO}")
 
