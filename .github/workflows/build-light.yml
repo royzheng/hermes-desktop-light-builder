@@ -32,6 +32,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Test installer
+        run: python3 scripts/test_installer.py
+
       - name: Pin upstream main commit
         id: upstream
         run: python3 scripts/select_upstream.py
@@ -53,7 +56,7 @@ jobs:
           done
           if [[ "$count" -eq 0 ]]; then
             echo 'signed=false' >> "$GITHUB_OUTPUT"
-            echo "release_tag=v${UPSTREAM_VERSION}-unsigned.1" >> "$GITHUB_OUTPUT"
+            echo "release_tag=v${UPSTREAM_VERSION}-unsigned.2" >> "$GITHUB_OUTPUT"
           elif [[ "$count" -eq 5 ]]; then
             echo 'signed=true' >> "$GITHUB_OUTPUT"
             echo "release_tag=v${UPSTREAM_VERSION}" >> "$GITHUB_OUTPUT"
@@ -167,7 +170,7 @@ jobs:
           - Upstream commit: \`$UPSTREAM_SHA\`
           - Variant: \`light\` (remote-only; no bundled Hermes Python backend)
 
-          $(if [[ "$SIGNED" == true ]]; then echo 'Signed and notarized. The ZIP and update manifest serve the in-app updater.'; else echo 'Unsigned build published as a regular GitHub Release: install manually. In-app updates require a signed release and a manual transition to the first signed build.'; fi)
+          $(if [[ "$SIGNED" == true ]]; then echo 'Signed and notarized. The ZIP and update manifest serve the in-app updater.'; else echo 'Unsigned build published as a regular GitHub Release: open the DMG and run Install.command. In-app updates require a signed release and a manual transition to the first signed build.'; fi)
           EOF
           if [[ "$SIGNED" == true ]]; then
             gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --draft \

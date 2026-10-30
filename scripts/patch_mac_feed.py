@@ -15,6 +15,22 @@ if (process.env.HERMES_DESKTOP_VARIANT === 'light') {{
   if (process.env.GITHUB_REPOSITORY !== '{EXPECTED_REPO}') {{
     throw new Error('Hermes Light builder requires GITHUB_REPOSITORY={EXPECTED_REPO}')
   }}
+  const installer = require('node:path').resolve(process.env.GITHUB_WORKSPACE, 'scripts/Install.command')
+  if (!require('node:fs').existsSync(installer)) {{
+    throw new Error('Missing Install.command')
+  }}
+  module.exports.dmg = {{
+    ...module.exports.dmg,
+    title: 'Hermes Light Installer',
+    background: null,
+    backgroundColor: '#f5f5f7',
+    window: {{ width: 640, height: 360 }},
+    iconSize: 80,
+    contents: [
+      {{ x: 170, y: 150, type: 'file' }},
+      {{ x: 460, y: 150, type: 'file', path: installer }}
+    ]
+  }}
   module.exports.mac.publish = [{{
     // The packaged Light client requests the stable descriptor at runtime.
     provider: 'github', owner: 'royzheng', repo: 'hermes-desktop-light-builder', channel: 'stable'

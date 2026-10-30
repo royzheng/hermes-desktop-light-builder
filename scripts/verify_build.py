@@ -6,6 +6,8 @@ import os
 import plistlib
 import re
 import sys
+import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -44,6 +46,16 @@ def main():
     require(os.environ["UPSTREAM_VERSION"] in dmgs[0].name, "DMG version differs")
     require(os.environ["UPSTREAM_VERSION"] in zips[0].name, "ZIP version differs")
     require(zips[0].name in feeds[0].read_text(), "Update feed does not reference the ZIP")
+    with tempfile.TemporaryDirectory(prefix="hermes-dmg-check-") as mount:
+        subprocess.run(["hdiutil", "attach", "-readonly", "-nobrowse", "-mountpoint", mount, str(dmgs[0])], check=True)
+        try:
+            installer = Path(mount) / "Install.command"
+            require(installer.is_file() and os.access(installer, os.X_OK), "DMG installer missing or not executable")
+            require(installer.read_bytes() == (Path(__file__).parent / "Install.command").read_bytes(), "DMG installer differs from source")
+            mounted_stamp = Path(mount) / "Hermes Light.app/Contents/Resources/install-stamp.json"
+            require(json.loads(mounted_stamp.read_text()) == stamp, "DMG contains a different app")
+        finally:
+            subprocess.run(["hdiutil", "detach", mount], check=True)
     print(f"Verified Hermes Light {os.environ['UPSTREAM_VERSION']} ({os.environ['UPSTREAM_SHA']})")
     print(f"Updater: {owner}/{repo}; artifacts: {dmgs[0].name}, {zips[0].name}, {feeds[0].name}")
 

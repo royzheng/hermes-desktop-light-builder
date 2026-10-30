@@ -8,11 +8,14 @@ Hermes Light does not bundle the Hermes Python backend or `agent-payload`. On fi
 
 ## Download and connect
 
-1. Download the Apple Silicon DMG from this repository's [Releases](https://github.com/royzheng/hermes-desktop-light-builder/releases). Releases ending in `-unsigned.1` are unsigned previews for **manual installation**.
-2. Drag **Hermes Light.app** into `/Applications` and open it.
+1. Download the Apple Silicon DMG from this repository's [Releases](https://github.com/royzheng/hermes-desktop-light-builder/releases). Releases with an `-unsigned.N` suffix are unsigned previews for **manual installation**.
+2. Open the DMG, quit any running Hermes Light, and double-click **Install.command**. It installs or replaces `/Applications/Hermes Light.app`, removes that app’s quarantine attribute, and opens it. Only Hermes Light is installed; no launcher is added.
 3. Choose **Connect to existing Hermes**. Enter your own HTTPS server URL, select **Test connection**, then sign in and apply the connection. The repository and app package contain no server password or personal server address.
 
 An unsigned preview may be blocked by macOS Gatekeeper. After confirming the download source, allow it in **System Settings → Privacy & Security** or remove quarantine from that app with `xattr -cr`.
+
+
+If macOS blocks the downloaded installer script, allow it in Privacy & Security or run it explicitly with `bash` from Terminal. Installing into a protected Applications directory may request your administrator password. Updates use the same installer; quit Hermes Light first.
 
 ## Builds and updates
 
@@ -26,7 +29,7 @@ The workflow patches the temporary checkout's [macOS feed configuration](scripts
 
 ### Enable signed releases
 
-Add all of these GitHub Actions secrets to publish a signed, notarized production Release. If any are missing, the workflow publishes an `-unsigned.1` regular Release for manual installation instead.
+Add all of these GitHub Actions secrets to publish a signed, notarized production Release. If any are missing, the workflow publishes an `-unsigned.N` regular Release for manual installation instead.
 
 | Secret | Value |
 | --- | --- |

@@ -6,11 +6,14 @@
 
 ## 下载并连接
 
-1. 从本仓库的 [Releases](https://github.com/royzheng/hermes-desktop-light-builder/releases) 下载 Apple Silicon DMG。标签以 `-unsigned.1` 结尾的是未签名预览版，需要**手动安装**。
-2. 将 **Hermes Light.app** 拖入 `/Applications` 并启动。
+1. 从本仓库的 [Releases](https://github.com/royzheng/hermes-desktop-light-builder/releases) 下载 Apple Silicon DMG。标签带有 `-unsigned.N` 后缀的是未签名预览版，需要**手动安装**。
+2. 打开 DMG，先退出正在运行的 Hermes Light，再双击 **Install.command**。脚本会安装或替换 `/Applications/Hermes Light.app`，移除该应用的隔离属性并打开它。只安装 Hermes Light，不额外安装启动器。
 3. 首次启动选择 **Connect to existing Hermes**，填写你自己的 HTTPS 服务器地址，点 **Test connection**，然后在应用内登录并应用连接。仓库和应用包都不包含你的服务器密码或私人地址。
 
 构建不会运行上游 `install.sh`，也不会修改服务器。macOS Gatekeeper 可能拦截未签名预览版；确认下载来源后，可在“系统设置 → 隐私与安全性”中允许打开，或对该应用执行 `xattr -cr`。
+
+
+如果 macOS 拦截下载的安装脚本，可在“隐私与安全性”中允许，或在终端用 `bash` 显式运行它。应用程序目录需要管理员权限时会提示输入密码。以后更新同样运行安装脚本，先退出 Hermes Light。
 
 ## 构建与更新
 
