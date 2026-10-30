@@ -28,8 +28,8 @@ def main():
         (contents / 'payload').write_text('first version')
         command = [str(disk / script.name), '--destination', str(dest), '--no-open', '--no-pause']
 
-        def run(ok=True):
-            result = subprocess.run(command, text=True, capture_output=True)
+        def run(ok=True, answer="", env=None):
+            result = subprocess.run(command, input=answer, env=env, text=True, capture_output=True)
             assert (result.returncode == 0) == ok, result.stdout + result.stderr
 
         subprocess.run(['xattr', '-w', 'com.apple.quarantine', '0083;00000000;InstallerTest;', str(source)], check=True)
@@ -56,6 +56,7 @@ def main():
         saved.rename(target)
         fake_process = root / 'HermesInstallerFixture'
         shutil.copy('/bin/sleep', fake_process)
+        subprocess.run(['codesign', '--force', '--sign', '-', str(fake_process)], check=True)
         process = subprocess.Popen([str(fake_process), '30'])
         try:
             # Wait until the actual fixture executable has replaced the child process.
@@ -66,12 +67,31 @@ def main():
                 time.sleep(.02)
             else:
                 raise AssertionError('fixture process did not start')
-            run(ok=False)
+            # Declining (or EOF) must preserve both the running app and installed payload.
+            run(answer='n\n')
+            run()
+            assert process.poll() is None
+            assert (target / 'Contents/payload').read_text() == 'second version'
+            tools = root / 'test-tools'
+            tools.mkdir()
+            quit_tool = tools / 'osascript'
+            quit_tool.write_text('#!/bin/bash\nexit 1\n')
+            quit_tool.chmod(0o755)
+            env = {**os.environ, 'PATH': str(tools) + ':' + os.environ['PATH']}
+            run(ok=False, answer='y\n', env=env)
+            assert process.poll() is None
+            assert (target / 'Contents/payload').read_text() == 'second version'
+            quit_tool.write_text(f'#!/bin/bash\nkill -TERM {process.pid}\n')
+            (contents / 'payload').write_text('third version')
+            run(answer='y\n', env=env)
+            process.wait(timeout=5)
+            assert (target / 'Contents/payload').read_text() == 'third version'
         finally:
-            process.terminate()
+            if process.poll() is None:
+                process.terminate()
             process.wait()
-        assert (target / 'Contents/payload').read_text() == 'second version'
-    print('PASS: first install, replacement, quarantine removal, wrong identity, symlink and running-app refusal')
+        assert (target / 'Contents/payload').read_text() == 'third version'
+    print('PASS: first install, replacement, quarantine removal, wrong identity, symlink and running-app cancel, failed quit, and confirmed quit/install')
 
 
 if __name__ == '__main__':
