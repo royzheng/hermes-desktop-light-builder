@@ -55,8 +55,11 @@ def main():
         target.unlink()
         saved.rename(target)
         fake_process = root / 'HLightTest'
-        shutil.copy('/bin/sleep', fake_process)
-        subprocess.run(['codesign', '--force', '--sign', '-', str(fake_process)], check=True)
+        sdk = subprocess.check_output(['xcrun', '--sdk', 'macosx', '--show-sdk-path'], text=True).strip()
+        subprocess.run(['xcrun', '--sdk', 'macosx', 'clang', '-isysroot', sdk,
+                        '-x', 'c', '-', '-o', str(fake_process)],
+                       input='extern int pause(void); int main(void) { for (;;) pause(); }\n',
+                       text=True, check=True)
         process = subprocess.Popen([str(fake_process), '30'])
         try:
             # Wait until the actual fixture executable has replaced the child process.
