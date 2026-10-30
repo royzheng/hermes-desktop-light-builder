@@ -22,11 +22,11 @@ The upstream stable tag available when this repository was created did not inclu
 
 The workflow patches the temporary checkout's [macOS feed configuration](scripts/patch_mac_feed.py) so the packaged `app-update.yml` points to `royzheng/hermes-desktop-light-builder`. It does not change upstream. The ZIP and `stable-mac.yml` are produced for the app's `stable` update channel.
 
-**Unsigned previews cannot provide reliable macOS in-app updates.** They are prereleases, so a stable-channel check may report that there is no production Release. macOS auto-update requires a signed app; this workflow's production path also notarizes it. When the first signed Release is available, install it manually over an unsigned preview; only then verify in-app checking, downloading, and relaunching with a subsequent signed Release.
+**Unsigned previews cannot provide reliable macOS in-app updates.** New unsigned builds are published as regular GitHub Releases and marked Latest so stable-channel checks can discover them. Release status does not provide Apple signing or notarization. macOS auto-update requires a signed app; this workflow's production path also notarizes it. When the first signed Release is available, install it manually over an unsigned preview; only then verify in-app checking, downloading, and relaunching with a subsequent signed Release.
 
 ### Enable signed releases
 
-Add all of these GitHub Actions secrets to publish a signed, notarized production Release. If any are missing, the workflow publishes an `-unsigned.1` prerelease instead.
+Add all of these GitHub Actions secrets to publish a signed, notarized production Release. If any are missing, the workflow publishes an `-unsigned.1` regular Release for manual installation instead.
 
 | Secret | Value |
 | --- | --- |

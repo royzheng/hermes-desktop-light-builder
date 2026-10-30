@@ -167,7 +167,7 @@ jobs:
           - Upstream commit: \`$UPSTREAM_SHA\`
           - Variant: \`light\` (remote-only; no bundled Hermes Python backend)
 
-          $(if [[ "$SIGNED" == true ]]; then echo 'Signed and notarized. The ZIP and update manifest serve the in-app updater.'; else echo 'Unsigned preview: install manually. In-app updates require a signed release and a manual transition to the first signed build.'; fi)
+          $(if [[ "$SIGNED" == true ]]; then echo 'Signed and notarized. The ZIP and update manifest serve the in-app updater.'; else echo 'Unsigned build published as a regular GitHub Release: install manually. In-app updates require a signed release and a manual transition to the first signed build.'; fi)
           EOF
           if [[ "$SIGNED" == true ]]; then
             gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --draft \
@@ -175,8 +175,8 @@ jobs:
               --notes-file "$RUNNER_TEMP/release-notes.md"
             gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
           else
-            gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --draft --prerelease --latest=false \
-              --title "Hermes Light $UPSTREAM_VERSION (unsigned preview)" \
+            gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --draft \
+              --title "Hermes Light $UPSTREAM_VERSION (unsigned, manual install)" \
               --notes-file "$RUNNER_TEMP/release-notes.md"
-            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest
           fi

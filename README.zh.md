@@ -18,7 +18,7 @@
 
 创建本仓库时，上游最新稳定标签还没有 Light 打包配置，因此工作流跟踪 `main`。版本号取自上游提交的 UTC 时间；Release 说明会列出精确提交。CI 临时使用 Python 构建工具，最终应用不带本地 Python 运行时。
 
-应用包内的 `app-update.yml` 指向 `royzheng/hermes-desktop-light-builder`，ZIP 和 `stable-mac.yml` 用于 `stable` 更新通道。但**未签名预览版不能可靠地在 macOS 应用内自动更新**，而且预发布版不会成为 GitHub 的最新正式 Release。首个签名并公证的正式版本需要手动覆盖安装；之后还需用下一次签名发布验证应用内更新。签名所需的 GitHub Actions Secrets 和更多实现细节见 [英文 README](README.md#enable-signed-releases)。
+应用包内的 `app-update.yml` 指向 `royzheng/hermes-desktop-light-builder`，ZIP 和 `stable-mac.yml` 用于 `stable` 更新通道。但**未签名预览版不能可靠地在 macOS 应用内自动更新**，新构建会作为正式 GitHub Release 发布并标为 Latest，使稳定通道可以找到版本；这个发布标记不等于 Apple 签名或公证。首个签名并公证的正式版本需要手动覆盖安装；之后还需用下一次签名发布验证应用内更新。签名所需的 GitHub Actions Secrets 和更多实现细节见 [英文 README](README.md#enable-signed-releases)。
 
 ## 来源
 
