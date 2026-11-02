@@ -25,7 +25,7 @@ The upstream stable tag available when this repository was created did not inclu
 
 The workflow patches the temporary checkout's [macOS feed configuration](scripts/patch_mac_feed.py) so the packaged `app-update.yml` points to `royzheng/hermes-desktop-light-builder`. It does not change upstream. The ZIP and `stable-mac.yml` are produced for the app's `stable` update channel.
 
-**Unsigned previews cannot provide reliable macOS in-app updates.** New unsigned builds are published as regular GitHub Releases and marked Latest so stable-channel checks can discover them. Release status does not provide Apple signing or notarization. macOS auto-update requires a signed app; this workflow's production path also notarizes it. When the first signed Release is available, install it manually over an unsigned preview; only then verify in-app checking, downloading, and relaunching with a subsequent signed Release.
+The custom macOS Light updater checks this repository's latest regular Release. **Update Now** downloads its DMG, verifies SHA-256 against that Release's `SHA256SUMS.txt`, and opens `Install.command` in Terminal. Confirm quitting Hermes Light to install and reopen it; declining leaves the current app untouched. Release notes link to the detected Release in this repository. Install this first patched version manually; older clients still use the native updater. GitHub Release status does not provide Apple signing or notarization.
 
 ### Enable signed releases
 
