@@ -59,7 +59,7 @@ jobs:
           done
           if [[ "$count" -eq 0 ]]; then
             echo 'signed=false' >> "$GITHUB_OUTPUT"
-            echo "release_tag=v${UPSTREAM_VERSION}-unsigned.4" >> "$GITHUB_OUTPUT"
+            echo "release_tag=v${UPSTREAM_VERSION}-unsigned.5" >> "$GITHUB_OUTPUT"
           elif [[ "$count" -eq 5 ]]; then
             echo 'signed=true' >> "$GITHUB_OUTPUT"
             echo "release_tag=v${UPSTREAM_VERSION}" >> "$GITHUB_OUTPUT"

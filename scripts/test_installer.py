@@ -31,12 +31,16 @@ def main():
         def run(ok=True, answer="", env=None):
             result = subprocess.run(command, input=answer, env=env, text=True, capture_output=True)
             assert (result.returncode == 0) == ok, result.stdout + result.stderr
+            return result
 
         subprocess.run(['xattr', '-w', 'com.apple.quarantine', '0083;00000000;InstallerTest;', str(source)], check=True)
         run()
         target = dest / source.name
         assert (target / 'Contents/payload').read_text() == 'first version'
         assert 'com.apple.quarantine' not in subprocess.check_output(['xattr', str(target)], text=True)
+        for language, expected in [('zh-Hans', '安装成功：'), ('en-US', 'Installed successfully:'), ('fr-FR', 'Installed successfully:')]:
+            result = run(env={**os.environ, 'HERMES_INSTALLER_LANGUAGE': language})
+            assert expected in result.stdout, result.stdout
         (contents / 'payload').write_text('second version')
         run()
         assert (target / 'Contents/payload').read_text() == 'second version'
