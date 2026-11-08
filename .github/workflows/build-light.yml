@@ -1,6 +1,12 @@
 name: Build Hermes Light for macOS arm64
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-light.yml'
+      - 'scripts/**'
+      - 'patches/**'
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
@@ -104,12 +110,34 @@ jobs:
         if: steps.existing.outputs.skip != 'true'
         run: python3 scripts/patch_mac_feed.py upstream/apps/desktop/electron-builder.config.cjs
 
+      - name: Read upstream pnpm version
+        if: steps.existing.outputs.skip != 'true'
+        id: pnpm
+        shell: bash
+        run: |
+          node <<'NODE' >> "$GITHUB_OUTPUT"
+          const version = require('./upstream/pm/lock.json').packages.pnpm.version
+          if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/.test(version)) {
+            throw new Error('Upstream pm/lock.json must pin an exact pnpm version')
+          }
+          console.log(`version=${version}`)
+          NODE
+
+      - name: Set up pinned pnpm
+        if: steps.existing.outputs.skip != 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ steps.pnpm.outputs.version }}
+          standalone: true
+          run_install: false
+
       - name: Install pinned Node dependencies
         if: steps.existing.outputs.skip != 'true'
         shell: bash
         run: |
           cd upstream
-          npm ci
+          # Upstream also prepares Electron, whose install script pnpm does not run.
+          node scripts/build/node-deps.mjs --source . --workspace apps/desktop --workspace web
 
       - name: Test installer update handoff
         if: steps.existing.outputs.skip != 'true'
@@ -137,8 +165,8 @@ jobs:
           if [[ "$SIGNED" != true ]]; then
             unset CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER
           fi
-          npm run build --workspace apps/desktop
-          npm run builder --workspace apps/desktop -- --mac "-c.extraMetadata.version=$UPSTREAM_VERSION"
+          pnpm --dir apps/desktop run build
+          pnpm --dir apps/desktop run builder --mac "-c.extraMetadata.version=$UPSTREAM_VERSION"
 
       - name: Verify app and feed before release
         if: steps.existing.outputs.skip != 'true'
