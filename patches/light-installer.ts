@@ -83,7 +83,7 @@ export class LightInstallerStrategy implements UpdaterStrategy {
       // Terminal owns this process, so it survives the old app quitting. The
       // mounted installer asks for consent and performs a normal app quit.
       const launcher = join(directory, 'Update.command')
-      await writeFile(launcher, `#!/bin/bash\n/bin/bash ${quote(installer)} --no-pause\nresult=$?\n/usr/bin/hdiutil detach ${quote(mount)} >/dev/null\n/bin/rm -rf ${quote(directory)}\nif [[ "$result" -ne 0 ]]; then\n  language=$(/usr/bin/defaults export NSGlobalDomain - 2>/dev/null | /usr/bin/plutil -extract AppleLanguages.0 raw -o - - 2>/dev/null)\n  case "$language" in zh*) prompt='更新失败，请查看以上信息。按回车退出。' ;; *) prompt='Update failed. See the message above. Press Return to exit. ' ;; esac\n  read -r -p "$prompt" unused\nfi\nexit "$result"\n`, { mode: 0o700 })
+      await writeFile(launcher, `#!/bin/bash\n/bin/bash ${quote(installer)} --no-pause\nresult=$?\n/usr/sbin/diskutil eject ${quote(mount)} >/dev/null\n/bin/rm -rf ${quote(directory)}\nif [[ "$result" -ne 0 ]]; then\n  language=$(/usr/bin/defaults export NSGlobalDomain - 2>/dev/null | /usr/bin/plutil -extract AppleLanguages.0 raw -o - - 2>/dev/null)\n  case "$language" in zh*) prompt='更新失败，请查看以上信息。按回车退出。' ;; *) prompt='Update failed. See the message above. Press Return to exit. ' ;; esac\n  read -r -p "$prompt" unused\nfi\nexit "$result"\n`, { mode: 0o700 })
       await run('/usr/bin/open', ['-a', 'Terminal', launcher])
       handedOff = true
       this.progress({ stage: 'restart', message: '安装程序已打开，请在终端确认退出并安装。', percent: 100 })
@@ -91,7 +91,7 @@ export class LightInstallerStrategy implements UpdaterStrategy {
     } finally {
       this.busy = false
       if (!handedOff && directory) {
-        if (mount) await run('/usr/bin/hdiutil', ['detach', mount]).catch(() => {})
+        if (mount) await run('/usr/sbin/diskutil', ['eject', mount]).catch(() => {})
         await rm(directory, { recursive: true, force: true })
       }
     }

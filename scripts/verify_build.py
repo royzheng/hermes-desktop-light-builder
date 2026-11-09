@@ -55,7 +55,7 @@ def main():
             mounted_stamp = Path(mount) / "Hermes Light.app/Contents/Resources/install-stamp.json"
             require(json.loads(mounted_stamp.read_text()) == stamp, "DMG contains a different app")
         finally:
-            subprocess.run(["hdiutil", "detach", mount], check=True)
+            subprocess.run(["/usr/sbin/diskutil", "eject", mount], check=True)
     print(f"Verified Hermes Light {os.environ['UPSTREAM_VERSION']} ({os.environ['UPSTREAM_SHA']})")
     print(f"Updater: {owner}/{repo}; artifacts: {dmgs[0].name}, {zips[0].name}, {feeds[0].name}")
 

@@ -55,12 +55,13 @@ async function load(name) {
       assert.equal((await updater.apply()).handedOff, true)
       const wrapper = await fs.readFile(path.join(directory, 'Update.command'), 'utf8')
       assert.match(wrapper, /Install.command' --no-pause/)
-      assert.match(wrapper, /hdiutil detach/)
-      assert(!commands.some(cmd => cmd.endsWith('detach')))
+      assert.match(wrapper, /\/usr\/sbin\/diskutil eject/)
+      assert(!commands.some(cmd => cmd.endsWith('eject')))
       await fs.rm(directory, { recursive: true })
     } else {
       await assert.rejects(updater.apply(), scenario === 'checksum failure' ? /SHA-256/ : /Terminal unavailable/)
       if (scenario === 'checksum failure') assert.equal(commands.length, 0)
+      if (scenario === 'open failure') assert(commands.includes('/usr/sbin/diskutil eject'))
       if (directory) await assert.rejects(fs.access(directory))
     }
     console.log('PASS:', scenario)
