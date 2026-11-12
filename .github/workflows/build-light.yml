@@ -44,6 +44,9 @@ jobs:
       - name: Test installer
         run: python3 scripts/test_installer.py
 
+      - name: Test pinned upstream checkout
+        run: python3 scripts/test_checkout_upstream.py
+
       - name: Pin upstream main commit
         id: upstream
         run: python3 scripts/select_upstream.py
@@ -100,9 +103,13 @@ jobs:
           UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
         shell: bash
         run: |
-          git clone --filter=blob:none --depth 1 --branch main https://github.com/NousResearch/hermes-agent.git upstream
+          # Fetch the selected commit directly: main can advance after selection.
+          git init upstream
+          git -C upstream remote add origin https://github.com/NousResearch/hermes-agent.git
+          git -C upstream -c protocol.version=2 fetch --filter=blob:none --depth 1 --no-tags origin "$UPSTREAM_SHA"
+          git -C upstream checkout --detach FETCH_HEAD
           actual="$(git -C upstream rev-parse HEAD)"
-          [[ "$actual" == "$UPSTREAM_SHA" ]] || { echo "Upstream main advanced during selection: $actual != $UPSTREAM_SHA. Re-run the workflow." >&2; exit 1; }
+          [[ "$actual" == "$UPSTREAM_SHA" ]] || { echo "Upstream checkout mismatch: $actual != $UPSTREAM_SHA." >&2; exit 1; }
           [[ -f upstream/apps/desktop/electron-builder.config.cjs ]] || { echo 'Selected upstream commit has no Light packaging config.' >&2; exit 1; }
           [[ "$(uname -m)" == arm64 ]] || { echo 'This workflow requires an Apple Silicon runner.' >&2; exit 1; }
 
